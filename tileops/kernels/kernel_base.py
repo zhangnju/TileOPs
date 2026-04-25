@@ -9,7 +9,8 @@ class Kernel(ABC):
     dtype: Optional[torch.dtype] = None
     config: Dict[str, Any]
     autotune_configs: Optional[list[dict]] = None
-    supported_archs: Optional[list[int]] = None
+    supported_archs: Optional[list[int]] = None      # NVIDIA SM IDs (e.g. [80, 89, 90])
+    supported_amd_archs: Optional[list[int]] = None  # AMD GFX series numbers (e.g. [950])
     kernel: Callable[[dict], Callable]
 
     def __init__(self, *args, **kwargs) -> None:

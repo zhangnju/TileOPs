@@ -332,8 +332,9 @@ class _GQASlidingWindowVarlenFwdKernelBase(Kernel):
 
 
 class GQASlidingWindowVarlenFwdKernel(_GQASlidingWindowVarlenFwdKernelBase):
-    """Variable-length GQA sliding window forward kernel (sm80/89/90)."""
+    """Variable-length GQA sliding window forward kernel (sm80/89/90; AMD gfx950)."""
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     @property
     def default_config(self) -> dict:

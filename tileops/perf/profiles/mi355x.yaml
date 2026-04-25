@@ -1,0 +1,27 @@
+# GPU Profile: AMD Instinct MI355X (gfx950, CDNA4, 287 GB HBM3e)
+# Source: AMD MI350 series product brief + ROCm 7.x release notes
+# TileOPs arch ID: 95  (get_device_capability() == (9, 5) → major*10+minor)
+#
+# Only store theoretical + calibration here.
+# effective = theoretical x calibration is computed by load_profile().
+
+gpu: AMD Instinct MI355X
+arch: gfx950
+
+hbm:
+  theoretical: 8000e9        # bytes/s  — 8.0 TB/s peak HBM3e (AMD spec)
+  calibration: 0.85          # placeholder — run benchmarks/hardware/memory/ equivalent
+
+# AMD terminology is "Matrix Core" (MFMA instructions), not "Tensor Core".
+# The tensor_core key is kept for compatibility with existing roofline code
+# that reads profile["tensor_core"][dtype]["effective"].
+tensor_core:
+  fp16:
+    theoretical: 2619e12     # FLOPS — 2619 TFLOPS FP16 matrix (AMD MI350X spec)
+    calibration: 0.75        # placeholder — run benchmarks/hardware/compute/ equivalent
+  bf16:
+    theoretical: 2619e12     # FLOPS — same as FP16 on CDNA4
+    calibration: 0.75        # placeholder
+  fp8:
+    theoretical: 5238e12     # FLOPS — 5238 TFLOPS FP8 (2× FP16, CDNA4 sparse-free)
+    calibration: 0.75        # placeholder

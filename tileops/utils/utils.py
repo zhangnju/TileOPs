@@ -67,10 +67,49 @@ def ensure_contiguous(func: callable) -> callable:
     return wrapper
 
 
-def is_hopper():
+def _is_rocm() -> bool:
+    """Return True when running on an AMD GPU via ROCm/HIP."""
+    return getattr(torch.version, 'hip', None) is not None
+
+
+def is_hopper() -> bool:
+    """Return True iff the current GPU is NVIDIA Hopper (SM90).
+
+    Always returns False on AMD/ROCm devices so that Hopper-exclusive
+    kernel paths (WGMMA, warp-specialization) are never selected there.
+    """
+    if _is_rocm():
+        return False
     return torch.cuda.get_device_capability() == (9, 0)
 
 
-def get_sm_version():
+def get_sm_version() -> int:
+    """Return an NVIDIA SM version integer for the current GPU.
+
+    NVIDIA only: major * 10 + minor  (e.g. SM80→80, SM89→89, SM90→90)
+    Do not call this on AMD/ROCm devices; use get_amd_gfx_version() instead.
+    """
     major, minor = torch.cuda.get_device_capability()
     return major * 10 + minor
+
+
+def get_amd_gfx_version() -> int:
+    """Return the AMD GFX series number for the current GPU.
+
+    AMD only: parses the gcnArchName (e.g. 'gfx950') and returns the
+    numeric suffix (e.g. 950).  Use this in supported_amd_archs checks
+    instead of get_sm_version(), which is reserved for NVIDIA SM IDs.
+
+    Raises:
+        RuntimeError: if called on a non-ROCm device.
+        ValueError: if the GFX architecture name cannot be parsed.
+    """
+    if not _is_rocm():
+        raise RuntimeError("get_amd_gfx_version() must only be called on AMD/ROCm devices")
+    prop = torch.cuda.get_device_properties(torch.cuda.current_device())
+    gcn_arch = prop.gcnArchName  # e.g. 'gfx950', 'gfx942'
+    # Strip optional ISA suffix like ':sramecc+:xnack-'
+    base = gcn_arch.split(':')[0]
+    if not base.startswith('gfx'):
+        raise ValueError(f"Unexpected gcnArchName format: {gcn_arch!r}")
+    return int(base[3:])

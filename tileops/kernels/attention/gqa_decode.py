@@ -314,6 +314,7 @@ def _(batch: int, heads: int, groups: int, seqlen_kv: int, real_seqlen_kv: int, 
 
 class GQADecodeKernel(Kernel):
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     def __init__(self,
                  batch,

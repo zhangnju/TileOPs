@@ -5,7 +5,8 @@ from typing import Hashable, Optional, Union
 import torch
 
 from tileops.kernels.kernel_base import Kernel
-from tileops.utils import get_sm_version
+from tileops.utils import get_amd_gfx_version, get_sm_version
+from tileops.utils.utils import _is_rocm
 
 # Module-level dedup for empty-static_dims warnings; keyed by Op subclass.
 _EMPTY_STATIC_DIMS_WARNED: set = set()
@@ -144,8 +145,13 @@ class Op(ABC):
                 kernel_type = kernel_map[name]
             else:
                 kernel_type = default_kernel
-            current_arch = get_sm_version()
-            if kernel_type is not None and current_arch not in kernel_type.supported_archs:
+            if _is_rocm():
+                current_arch = get_amd_gfx_version()
+                supported = kernel_type.supported_amd_archs if kernel_type is not None else None
+            else:
+                current_arch = get_sm_version()
+                supported = kernel_type.supported_archs if kernel_type is not None else None
+            if kernel_type is not None and supported is not None and current_arch not in supported:
                 raise ValueError(
                     f'{kernel_type.__name__} is not supported on architecture {current_arch}')
             self.kernel_map[name] = kernel_type

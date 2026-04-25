@@ -85,17 +85,25 @@ _bench_results = threading.local()
 
 
 def _sum_kernel_time_us(kineto_results):
-    """Extract total CUDA kernel time directly from C++ Kineto events.
+    """Extract total GPU kernel time directly from C++ Kineto events.
 
     Bypasses ``profiler.key_averages()`` which triggers expensive Python
     event parsing (~120ms) and tree building (~10ms) for large traces.
     Direct C++ iteration is ~16x faster for n_repeat=1280.
+
+    Works for both CUDA (NVIDIA) and HIP (AMD ROCm) backends: PyTorch on
+    ROCm reports GPU events under DeviceType.CUDA (hipified alias).
+    The L2-flush zero-fill kernel is excluded by name: on NVIDIA it is
+    ``vectorized_elementwise``/``FillFunctor``; on ROCm it is a
+    ``hipMemsetKernel`` variant — both are caught by the filter below.
     """
     total_us = 0.0
     for evt in kineto_results.events():
         if evt.device_type() == DeviceType.CUDA:
             name = evt.name()
-            if "vectorized_elementwise" in name and "FillFunctor" in name:
+            # Exclude L2-flush zero-fill kernels (both NVIDIA and AMD names)
+            if ("FillFunctor" in name and "vectorized_elementwise" in name) or \
+               "hipMemset" in name or "Memset" in name:
                 continue
             total_us += evt.duration_ns() / 1000.0
     return total_us
@@ -256,24 +264,39 @@ def bench_kernel(
 
 
 def _get_env_metadata() -> list[str]:
-    """Collect GPU model, driver version, CUDA version, and torch version."""
+    """Collect GPU model, driver version, ROCm/CUDA version, and torch version."""
     lines = []
     lines.append(f"- **Torch version**: {torch.__version__}")
-    lines.append(f"- **CUDA version (torch)**: {torch.version.cuda or 'N/A'}")
+
+    hip_ver = getattr(torch.version, 'hip', None)
+    cuda_ver = torch.version.cuda
+    lines.append(f"- **ROCm/CUDA version**: {hip_ver or cuda_ver or 'N/A'}")
 
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
         lines.append(f"- **GPU model**: {gpu_name}")
     else:
-        lines.append("- **GPU model**: N/A (no CUDA device)")
+        lines.append("- **GPU model**: N/A (no GPU device)")
 
-    # Try to get NVIDIA driver version from nvidia-smi
+    # Try to get driver version from rocm-smi (AMD) or nvidia-smi (NVIDIA)
     try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=5,
-        )
-        driver = result.stdout.strip().split("\n")[0] if result.returncode == 0 else "N/A"
+        if hip_ver:
+            result = subprocess.run(
+                ["rocm-smi", "--showdriverversion"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                # rocm-smi output: last non-empty line typically has the version
+                lines_out = [l.strip() for l in result.stdout.splitlines() if l.strip()]
+                driver = lines_out[-1] if lines_out else "N/A"
+            else:
+                driver = "N/A"
+        else:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+                capture_output=True, text=True, timeout=5,
+            )
+            driver = result.stdout.strip().split("\n")[0] if result.returncode == 0 else "N/A"
     except (FileNotFoundError, subprocess.TimeoutExpired):
         driver = "N/A"
     lines.append(f"- **Driver version**: {driver}")

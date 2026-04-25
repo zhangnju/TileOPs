@@ -190,6 +190,7 @@ def _(batch, heads, heads_kv, seq_len, dim, is_causal, window_size_left,
 
 class GQASlidingWindowFwdKernel(Kernel):
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     def __init__(
         self,

@@ -275,6 +275,7 @@ def _(
 
 class MLADecodeKernel(Kernel):
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     def __init__(self,
                  batch,

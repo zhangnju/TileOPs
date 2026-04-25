@@ -135,6 +135,7 @@ def _(batch: int, heads: int, seq_len:
 
 class MHAFwdKernel(Kernel):
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     def __init__(self,
                  batch: int,
@@ -504,6 +505,7 @@ def _(batch: int, heads: int,
 
 class GQAFwdKernel(Kernel):
     supported_archs: list[int] = [80, 89, 90]
+    supported_amd_archs: list[int] = [950]  # gfx950 (MI355X)
 
     def __init__(self,
                  batch: int,
